@@ -989,7 +989,13 @@
    */
   function appFetch(url, method = 'POST', body = null) {
     if (!IS_IN_APP) {
-      const opts = { method, headers: { 'Content-Type': 'application/json' } };
+      const opts = {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          'X-REQUEST-ENV': 'stage.credscore.betaenv'
+        }
+      };
       if (body && method !== 'GET') opts.body = JSON.stringify(body);
       return fetch(url, opts).then(async res => {
         const data = await res.json();
@@ -1007,6 +1013,9 @@
         callbackId: callbackId,
         subUrl: url,
         httpMethod: method,
+        headers: {
+          'X-REQUEST-ENV': 'stage.credscore.betaenv'
+        },
         ...(body ? { requestBody: JSON.stringify(body) } : {})
       });
 
