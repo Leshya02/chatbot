@@ -906,6 +906,7 @@
       <input type="text" id="userId" placeholder="Enter User ID (e.g., U250721...)"
              onkeydown="if(event.key==='Enter') connectUser()" />
       <button id="connectBtn" onclick="connectUser()">📊 Load</button>
+      <button id="testApiBtn" onclick="testFetchScoreApi()" style="padding:9px 14px;background:#d32f2f;color:white;border:none;border-radius:10px;font-size:12px;font-weight:600;cursor:pointer;">🧪 Test API</button>
       <span class="status" id="status">● Not connected</span>
     </div>
 
@@ -963,20 +964,33 @@
   window.PhonePe = window.PhonePe || {};
   window.PhonePe.MessagingHandler = window.PhonePe.MessagingHandler || {};
   window.PhonePe.MessagingHandler.callback = function(callbackId, statusCode, responseStr, error) {
+    console.log('[Bridge CB] callbackId:', callbackId, 'statusCode:', statusCode);
+    console.log('[Bridge CB] responseStr:', responseStr);
+    console.log('[Bridge CB] error:', error);
+
     const pending = pendingCallbacks[callbackId];
-    if (!pending) return;
+    if (!pending) {
+      console.warn('[Bridge CB] No pending callback for:', callbackId);
+      return;
+    }
     delete pendingCallbacks[callbackId];
 
-    if (error || statusCode !== 1) {
-      pending.reject(new Error(error || 'Bridge request failed'));
+    if (error) {
+      console.error('[Bridge CB] Error:', error);
+      pending.reject(new Error(error));
       return;
     }
 
     try {
       const parsed = JSON.parse(responseStr);
-      const body = typeof parsed.response === 'string' ? JSON.parse(parsed.response) : parsed.response;
-      pending.resolve({ ok: true, data: body });
+      console.log('[Bridge CB] parsed:', JSON.stringify(parsed).substring(0, 500));
+      const httpStatus = parsed.statusCode || parsed.httpStatusCode || statusCode;
+      const body = typeof parsed.response === 'string' ? JSON.parse(parsed.response) : (parsed.response || parsed.data || parsed);
+      const isOk = httpStatus === 200 || httpStatus === 1 || statusCode === 1;
+      console.log('[Bridge CB] resolved ok:', isOk, 'httpStatus:', httpStatus);
+      pending.resolve({ ok: isOk, data: body, httpStatus: httpStatus, raw: parsed });
     } catch (e) {
+      console.error('[Bridge CB] Parse error:', e.message, 'raw:', responseStr);
       pending.reject(e);
     }
   };
@@ -1012,6 +1026,50 @@
 
       JSNetworkBridge.processRequest(request);
     });
+  }
+
+  /* ── Test API Button ── */
+  async function testFetchScoreApi() {
+    const userId = document.getElementById('userId').value.trim() || 'U2606031206381959893177';
+    const url = '/apis/credit-score/api/v2/fetch-score';
+    const body = {
+      entityId: userId,
+      entityType: 'PERSON',
+      requestType: 'FETCH_REPORT',
+      refreshScore: false,
+      saveConsentMeta: []
+    };
+
+    const resultDiv = document.getElementById('chatArea');
+    resultDiv.innerHTML = '<div class="message bot"><div class="label">🧪 TEST API CALL</div>' +
+      '<p><strong>URL:</strong> <code>' + url + '</code></p>' +
+      '<p><strong>Method:</strong> POST</p>' +
+      '<p><strong>Body:</strong> <code>' + JSON.stringify(body) + '</code></p>' +
+      '<p><strong>IS_IN_APP:</strong> ' + IS_IN_APP + '</p>' +
+      '<p>⏳ Calling...</p></div>';
+
+    console.log('========================================');
+    console.log('[TEST API] Calling:', url);
+    console.log('[TEST API] Body:', JSON.stringify(body));
+    console.log('[TEST API] IS_IN_APP:', IS_IN_APP);
+    console.log('========================================');
+
+    try {
+      const result = await appFetch(url, 'POST', body);
+      const output = JSON.stringify(result, null, 2);
+      console.log('[TEST API] Response:', output);
+      const bgColor = result.ok ? '#e8f5e9' : '#fff3e0';
+      const icon = result.ok ? '✅' : '⚠️';
+      const label = result.ok ? 'SUCCESS' : 'RESPONSE (HTTP ' + (result.data?.statusCode || '400') + ')';
+      resultDiv.innerHTML += '<div class="message bot" style="background:' + bgColor + ';">' +
+        '<div class="label" style="color:#333;">' + icon + ' ' + label + '</div>' +
+        '<pre style="white-space:pre-wrap;word-break:break-all;font-size:11px;max-height:400px;overflow:auto;">' + escapeHtml(output.substring(0, 3000)) + '</pre></div>';
+    } catch (e) {
+      console.error('[TEST API] ❌ ERROR:', e.message, e);
+      resultDiv.innerHTML += '<div class="message bot" style="background:#fce4ec;">' +
+        '<div class="label" style="color:#d32f2f;">❌ API ERROR</div>' +
+        '<pre style="white-space:pre-wrap;word-break:break-all;font-size:11px;">' + escapeHtml(e.message || String(e)) + '</pre></div>';
+    }
   }
 
   /* ── DOM element cache ── */
