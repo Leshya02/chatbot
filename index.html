@@ -950,15 +950,14 @@
 </div>
 
 <script>
-  const API_BASE = 'api/v1/chatbot';
+  const API_BASE = '/api/v1/chatbot';
 
   /* ── PhonePe App Bridge ���─ */
-  const DEFAULT_HEADERS = {
-    'Content-Type': 'application/json',
-    'X-REQUEST-ENV': 'stage.credscore.betaenv'
-  };
+
   const IS_IN_APP = typeof JSNetworkBridge !== 'undefined';
   const pendingCallbacks = {};
+  const callbackHistory = [];   // in-memory store of all callbackIds
+  let lastCallbackId = null;    // most recent callbackId
   let callbackCounter = 0;
 
   window.PhonePe = window.PhonePe || {};
@@ -990,7 +989,7 @@
    */
   function appFetch(url, method = 'POST', body = null) {
     if (!IS_IN_APP) {
-      const opts = { method, headers: DEFAULT_HEADERS };
+      const opts = { method, headers: { 'Content-Type': 'application/json' } };
       if (body && method !== 'GET') opts.body = JSON.stringify(body);
       return fetch(url, opts).then(async res => {
         const data = await res.json();
@@ -1000,13 +999,14 @@
 
     return new Promise((resolve, reject) => {
       const callbackId = 'cb_credscore_chatbot_' + (++callbackCounter);
+      lastCallbackId = callbackId;
+      callbackHistory.push({ callbackId, url, method, timestamp: Date.now() });
       pendingCallbacks[callbackId] = { resolve, reject };
 
       const request = JSON.stringify({
         callbackId: callbackId,
         subUrl: url,
         httpMethod: method,
-        headers: DEFAULT_HEADERS,
         ...(body ? { requestBody: JSON.stringify(body) } : {})
       });
 
@@ -1242,7 +1242,7 @@
     addBotMessage('⏳ Loading credit report for **' + userId + '**...');
 
     try {
-      let result = await appFetch(`${API_BASE}/init-db/PERSON/${encodeURIComponent(userId)}`, 'POST');
+      let result = await appFetch(`${API_BASE}/fetch-score/PERSON/${encodeURIComponent(userId)}`, 'POST');
 
       if (!result.ok) {
         result = await appFetch(`${API_BASE}/init/${encodeURIComponent(userId)}`, 'POST');
