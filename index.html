@@ -1012,7 +1012,7 @@
     }
 
     return new Promise((resolve, reject) => {
-      const callbackId = 'cb_credscore_chatbot_' + (++callbackCounter);
+      const callbackId = 1  ;
       lastCallbackId = callbackId;
       callbackHistory.push({ callbackId, url, method, timestamp: Date.now() });
       pendingCallbacks[callbackId] = { resolve, reject };
