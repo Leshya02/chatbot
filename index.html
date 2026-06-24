@@ -982,8 +982,8 @@
     }
 
     try {
-      const cleanJsonString = JSON.parse(`"${responseStr}"`);
-      const parsed = JSON.parse(cleanJsonString);
+      
+      const parsed = JSON.parse(responseStr.response);
       console.log('[Bridge CB] parsed:', JSON.stringify(parsed).substring(0, 500));
       const httpStatus = parsed.statusCode || parsed.httpStatusCode || statusCode;
       const body = typeof parsed.response === 'string' ? JSON.parse(parsed.response) : (parsed.response || parsed.data || parsed);
