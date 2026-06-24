@@ -1023,7 +1023,7 @@
         subUrl: url,
         httpMethod: method,
        headers: { 'Content-Type': 'application/json', 'X-REQUEST-ENV': 'stage.credscore.betaenv' },
-         ...(body ? { bodyJSON: body } : {})
+         ...(body ? { bodyJSON: JSON.stringify(body) } : {})
       });
 
       JSNetworkBridge.processRequest(request);
