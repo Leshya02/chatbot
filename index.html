@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Credit Score AI Assistant</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -790,6 +790,12 @@
 
     /* ── Mobile responsive ── */
     @media (max-width: 768px) {
+      .header {
+        padding: 10px 16px;
+      }
+      .header-title { font-size: 15px; }
+      .header-subtitle { display: none; }
+
       .history-panel {
         position: fixed;
         top: 0; left: 0; bottom: 0;
@@ -810,39 +816,84 @@
       }
 
       .chat-panel { width: 100%; }
-      .message { max-width: 90%; }
+      .message {
+        max-width: 92%;
+        padding: 12px 14px;
+        font-size: 14px;
+        border-radius: 14px;
+      }
+
+      .chat-area {
+        padding: 12px 10px;
+        gap: 10px;
+      }
 
       .input-area {
-        padding: 10px 12px;
+        padding: 8px 10px;
         gap: 6px;
+        border-top: 1px solid #e0e0e0;
       }
       .input-area input {
-        padding: 9px 14px;
-        font-size: 13px;
+        padding: 10px 14px;
+        font-size: 14px;
         min-width: 0;
+        border-radius: 20px;
       }
       .voice-select {
         display: none;
       }
       .send-btn {
-        width: 40px; height: 40px;
-        min-width: 40px;
-        font-size: 16px;
-      }
-      .mic-btn {
-        width: 40px; height: 40px;
-        min-width: 40px;
+        width: 42px; height: 42px;
+        min-width: 42px;
         font-size: 18px;
       }
-      .user-bar {
-        padding: 8px 12px;
-        gap: 6px;
-        flex-wrap: wrap;
+      .mic-btn {
+        width: 42px; height: 42px;
+        min-width: 42px;
+        font-size: 20px;
       }
-      .user-bar input { font-size: 12px; padding: 8px 10px; }
-      .user-bar button { padding: 8px 12px; font-size: 12px; }
-      .prompts { gap: 4px; }
-      .prompt-chip { font-size: 11px; padding: 6px 10px; }
+      .user-bar {
+        padding: 8px 10px;
+        gap: 6px;
+        flex-wrap: nowrap;
+      }
+      .user-bar input {
+        font-size: 13px;
+        padding: 8px 10px;
+        border-radius: 8px;
+        min-width: 0;
+        flex: 1;
+      }
+      .user-bar button {
+        padding: 8px 14px;
+        font-size: 12px;
+        white-space: nowrap;
+        flex-shrink: 0;
+      }
+      .status {
+        display: none;
+      }
+      .prompts-container {
+        padding: 6px 10px 8px;
+      }
+      .prompts {
+        gap: 5px;
+        overflow-x: auto;
+        flex-wrap: nowrap;
+        padding-bottom: 4px;
+        -webkit-overflow-scrolling: touch;
+      }
+      .prompt-chip {
+        font-size: 12px;
+        padding: 8px 12px;
+        flex-shrink: 0;
+      }
+      .welcome {
+        padding: 40px 16px;
+      }
+      .welcome h2 { font-size: 18px; }
+      .welcome p { font-size: 13px; }
+      .welcome-icon { font-size: 40px; }
     }
   </style>
 </head>
@@ -902,10 +953,9 @@
   <div class="chat-panel">
     <!-- User ID Bar -->
     <div class="user-bar">
-      <input type="text" id="userId" placeholder="Enter User ID (e.g., U250721...)"
+      <input type="text" id="userId" placeholder="Enter User ID"
              onkeydown="if(event.key==='Enter') connectUser()" />
       <button id="connectBtn" onclick="connectUser()">📊 Load</button>
-      <button id="testApiBtn" onclick="testFetchScoreApi()" style="padding:9px 14px;background:#d32f2f;color:white;border:none;border-radius:10px;font-size:12px;font-weight:600;cursor:pointer;">🧪 Test API</button>
       <span class="status" id="status">● Not connected</span>
     </div>
 
@@ -1029,49 +1079,6 @@
     });
   }
 
-  /* ── Test API Button ── */
-  async function testFetchScoreApi() {
-    const userId = document.getElementById('userId').value.trim() || 'U2606031206381959893177';
-    const url = 'apis/credit-score/api/v2/fetch-score';
-    const body = {
-      entityId: userId,
-      entityType: 'PERSON',
-      requestType: 'FETCH_REPORT',
-      refreshScore: false,
-      saveConsentMeta: []
-    };
-
-    const resultDiv = document.getElementById('chatArea');
-    resultDiv.innerHTML = '<div class="message bot"><div class="label">🧪 TEST API CALL</div>' +
-        '<p><strong>URL:</strong> <code>' + url + '</code></p>' +
-        '<p><strong>Method:</strong> POST</p>' +
-        '<p><strong>Body:</strong> <code>' + JSON.stringify(body) + '</code></p>' +
-        '<p><strong>IS_IN_APP:</strong> ' + IS_IN_APP + '</p>' +
-        '<p>⏳ Calling...</p></div>';
-
-    console.log('========================================');
-    console.log('[TEST API] Calling:', url);
-    console.log('[TEST API] Body:', JSON.stringify(body));
-    console.log('[TEST API] IS_IN_APP:', IS_IN_APP);
-    console.log('========================================');
-
-    try {
-      const result = await appFetch(url, 'POST', body);
-      const output = JSON.stringify(result, null, 2);
-      console.log('[TEST API] Response:', output);
-      const bgColor = result.ok ? '#e8f5e9' : '#fff3e0';
-      const icon = result.ok ? '✅' : '⚠️';
-      const label = result.ok ? 'SUCCESS' : 'RESPONSE (HTTP ' + (result.data?.statusCode || '400') + ')';
-      resultDiv.innerHTML += '<div class="message bot" style="background:' + bgColor + ';">' +
-          '<div class="label" style="color:#333;">' + icon + ' ' + label + '</div>' +
-          '<pre style="white-space:pre-wrap;word-break:break-all;font-size:11px;max-height:400px;overflow:auto;">' + escapeHtml(output.substring(0, 3000)) + '</pre></div>';
-    } catch (e) {
-      console.error('[TEST API] ❌ ERROR:', e.message, e);
-      resultDiv.innerHTML += '<div class="message bot" style="background:#fce4ec;">' +
-          '<div class="label" style="color:#d32f2f;">❌ API ERROR</div>' +
-          '<pre style="white-space:pre-wrap;word-break:break-all;font-size:11px;">' + escapeHtml(e.message || String(e)) + '</pre></div>';
-    }
-  }
 
   /* ── DOM element cache ── */
   const $userId    = document.getElementById('userId');
@@ -1186,7 +1193,7 @@
 
     clearChat();
     $chatArea.innerHTML =
-        '<div class="welcome"><div class="welcome-icon">📊</div>' +
+        '<div class="welcome"><div class="welcome-icon">🏦</div>' +
         '<h2>Welcome to Credit Score AI</h2>' +
         '<p>Enter a User ID above to load the credit report.</p></div>';
 
