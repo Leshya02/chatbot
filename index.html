@@ -1022,7 +1022,8 @@
         callbackId: callbackId,
         subUrl: url,
         httpMethod: method,
-        ...(body ? { requestBody: JSON.stringify(body) } : {})
+       headers: { 'Content-Type': 'application/json', 'X-REQUEST-ENV': 'stage.credscore.betaenv' },
+        ...(body ? { requestBody: body } : {})
       });
 
       JSNetworkBridge.processRequest(request);
