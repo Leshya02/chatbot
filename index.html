@@ -982,7 +982,7 @@
     }
 
     try {
-      
+
       const parsed = JSON.parse(responseStr.response);
       console.log('[Bridge CB] parsed:', JSON.stringify(parsed).substring(0, 500));
       const httpStatus = parsed.statusCode || parsed.httpStatusCode || statusCode;
@@ -1022,8 +1022,8 @@
         callbackId: callbackId,
         subUrl: url,
         httpMethod: method,
-       headers: { 'Content-Type': 'application/json', 'X-REQUEST-ENV': 'stage.credscore.betaenv' },
-         ...(body ? { bodyJSON: JSON.stringify(body) } : {})
+        headers: { 'Content-Type': 'application/json', 'X-REQUEST-ENV': 'stage.credscore.betaenv' },
+        ...(body ? { bodyJSON: JSON.stringify(body) } : {})
       });
 
       JSNetworkBridge.processRequest(request);
@@ -1044,11 +1044,11 @@
 
     const resultDiv = document.getElementById('chatArea');
     resultDiv.innerHTML = '<div class="message bot"><div class="label">🧪 TEST API CALL</div>' +
-      '<p><strong>URL:</strong> <code>' + url + '</code></p>' +
-      '<p><strong>Method:</strong> POST</p>' +
-      '<p><strong>Body:</strong> <code>' + JSON.stringify(body) + '</code></p>' +
-      '<p><strong>IS_IN_APP:</strong> ' + IS_IN_APP + '</p>' +
-      '<p>⏳ Calling...</p></div>';
+        '<p><strong>URL:</strong> <code>' + url + '</code></p>' +
+        '<p><strong>Method:</strong> POST</p>' +
+        '<p><strong>Body:</strong> <code>' + JSON.stringify(body) + '</code></p>' +
+        '<p><strong>IS_IN_APP:</strong> ' + IS_IN_APP + '</p>' +
+        '<p>⏳ Calling...</p></div>';
 
     console.log('========================================');
     console.log('[TEST API] Calling:', url);
@@ -1064,13 +1064,13 @@
       const icon = result.ok ? '✅' : '⚠️';
       const label = result.ok ? 'SUCCESS' : 'RESPONSE (HTTP ' + (result.data?.statusCode || '400') + ')';
       resultDiv.innerHTML += '<div class="message bot" style="background:' + bgColor + ';">' +
-        '<div class="label" style="color:#333;">' + icon + ' ' + label + '</div>' +
-        '<pre style="white-space:pre-wrap;word-break:break-all;font-size:11px;max-height:400px;overflow:auto;">' + escapeHtml(output.substring(0, 3000)) + '</pre></div>';
+          '<div class="label" style="color:#333;">' + icon + ' ' + label + '</div>' +
+          '<pre style="white-space:pre-wrap;word-break:break-all;font-size:11px;max-height:400px;overflow:auto;">' + escapeHtml(output.substring(0, 3000)) + '</pre></div>';
     } catch (e) {
       console.error('[TEST API] ❌ ERROR:', e.message, e);
       resultDiv.innerHTML += '<div class="message bot" style="background:#fce4ec;">' +
-        '<div class="label" style="color:#d32f2f;">❌ API ERROR</div>' +
-        '<pre style="white-space:pre-wrap;word-break:break-all;font-size:11px;">' + escapeHtml(e.message || String(e)) + '</pre></div>';
+          '<div class="label" style="color:#d32f2f;">❌ API ERROR</div>' +
+          '<pre style="white-space:pre-wrap;word-break:break-all;font-size:11px;">' + escapeHtml(e.message || String(e)) + '</pre></div>';
     }
   }
 
@@ -1548,20 +1548,68 @@
     };
   }
 
-  /* ── Server-side voice recording (MediaRecorder → backend → audio) ── */
+  /* ── Server-side voice recording (Web Audio API + MediaRecorder fallback) ── */
   let livePreviewRecognition = null;
+  let audioContext = null;
 
   async function startServerRecording() {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: { sampleRate: 16000, channelCount: 1, echoCancellation: true, noiseSuppression: true }
+      });
       audioChunks = [];
 
+      // Try Web Audio API (AudioContext) first — better WebView support
+      if (window.AudioContext || window.webkitAudioContext) {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        audioContext = new AudioCtx({ sampleRate: 16000 });
+        const source = audioContext.createMediaStreamSource(stream);
+        const bufferSize = 4096;
+        const processor = audioContext.createScriptProcessor(bufferSize, 1, 1);
+        const pcmChunks = [];
+
+        processor.onaudioprocess = (e) => {
+          pcmChunks.push(new Float32Array(e.inputBuffer.getChannelData(0)));
+        };
+
+        source.connect(processor);
+        processor.connect(audioContext.destination);
+
+        isListening = true;
+        $micBtn.classList.add('listening');
+        $micBtn.title = '🔴 Recording... click to stop';
+        $queryInput.value = '';
+        $queryInput.placeholder = '🎙 Listening (Web Audio)...';
+        startLivePreview();
+
+        window._stopWebAudioRecording = async () => {
+          processor.disconnect();
+          source.disconnect();
+          audioContext.close();
+          audioContext = null;
+          stopLivePreview();
+          stream.getTracks().forEach(t => t.stop());
+          isListening = false;
+          $micBtn.classList.remove('listening');
+          $micBtn.title = 'Voice input';
+
+          if (pcmChunks.length === 0) {
+            $queryInput.placeholder = 'Ask about your credit report...';
+            return;
+          }
+          const wavBase64 = pcmToWavBase64(pcmChunks, 16000);
+          await processServerVoice(wavBase64, 'LINEAR16');
+        };
+
+        recordingTimer = setTimeout(() => stopServerRecording(), 15000);
+        return;
+      }
+
+      // Fallback: MediaRecorder
       let mimeType = 'audio/webm;codecs=opus';
       if (!MediaRecorder.isTypeSupported(mimeType)) {
         mimeType = 'audio/webm';
-        if (!MediaRecorder.isTypeSupported(mimeType)) {
-          mimeType = '';
-        }
+        if (!MediaRecorder.isTypeSupported(mimeType)) mimeType = '';
       }
 
       mediaRecorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
@@ -1574,7 +1622,6 @@
         if (recordingTimer) { clearTimeout(recordingTimer); recordingTimer = null; }
         stopLivePreview();
         stream.getTracks().forEach(t => t.stop());
-
         isListening = false;
         $micBtn.classList.remove('listening');
         $micBtn.title = 'Voice input';
@@ -1586,11 +1633,10 @@
 
         const blob = new Blob(audioChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
         audioChunks = [];
-
         const reader = new FileReader();
         reader.onloadend = async () => {
           const base64Audio = reader.result.split(',')[1];
-          await processServerVoice(base64Audio);
+          await processServerVoice(base64Audio, 'WEBM_OPUS');
         };
         reader.readAsDataURL(blob);
       };
@@ -1601,12 +1647,8 @@
       $micBtn.title = '🔴 Recording... click to stop';
       $queryInput.value = '';
       $queryInput.placeholder = '🎙 Listening...';
-
       startLivePreview();
-
-      recordingTimer = setTimeout(() => {
-        stopServerRecording();
-      }, 15000);
+      recordingTimer = setTimeout(() => stopServerRecording(), 15000);
 
     } catch (e) {
       console.error('Failed to start recording:', e);
@@ -1615,10 +1657,7 @@
       if (recognition || (window.SpeechRecognition || window.webkitSpeechRecognition)) {
         useServerVoice = false;
         if (!recognition) initSpeechRecognition();
-        if (recognition) {
-          $queryInput.value = '';
-          recognition.start();
-        }
+        if (recognition) { $queryInput.value = ''; recognition.start(); }
       } else {
         alert('Microphone access denied. Please allow microphone access and try again.');
       }
@@ -1626,9 +1665,51 @@
   }
 
   function stopServerRecording() {
-    if (mediaRecorder && mediaRecorder.state === 'recording') {
+    if (recordingTimer) { clearTimeout(recordingTimer); recordingTimer = null; }
+    if (window._stopWebAudioRecording) {
+      window._stopWebAudioRecording();
+      window._stopWebAudioRecording = null;
+    } else if (mediaRecorder && mediaRecorder.state === 'recording') {
       mediaRecorder.stop();
     }
+  }
+
+  /** Convert PCM Float32 chunks to base64-encoded WAV (16-bit, mono) */
+  function pcmToWavBase64(pcmChunks, sampleRate) {
+    let totalLength = 0;
+    pcmChunks.forEach(c => totalLength += c.length);
+    const merged = new Float32Array(totalLength);
+    let offset = 0;
+    pcmChunks.forEach(c => { merged.set(c, offset); offset += c.length; });
+
+    const numSamples = merged.length;
+    const buffer = new ArrayBuffer(44 + numSamples * 2);
+    const view = new DataView(buffer);
+
+    const writeStr = (o, s) => { for (let i = 0; i < s.length; i++) view.setUint8(o + i, s.charCodeAt(i)); };
+    writeStr(0, 'RIFF');
+    view.setUint32(4, 36 + numSamples * 2, true);
+    writeStr(8, 'WAVE');
+    writeStr(12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, 1, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * 2, true);
+    view.setUint16(32, 2, true);
+    view.setUint16(34, 16, true);
+    writeStr(36, 'data');
+    view.setUint32(40, numSamples * 2, true);
+
+    for (let i = 0; i < numSamples; i++) {
+      let s = Math.max(-1, Math.min(1, merged[i]));
+      view.setInt16(44 + i * 2, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+    }
+
+    const bytes = new Uint8Array(buffer);
+    let binary = '';
+    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+    return btoa(binary);
   }
 
   /** Live text preview: browser SpeechRecognition alongside MediaRecorder */
@@ -1701,14 +1782,14 @@
     }
   }
 
-  async function processServerVoice(base64Audio) {
+  async function processServerVoice(base64Audio, encoding = 'WEBM_OPUS') {
     if (!sessionActive) return;
 
     showTyping(true);
     $queryInput.placeholder = '🎤 Processing voice...';
 
     try {
-      const result = await appFetch(`${API_BASE}/voice`, 'POST', { audio: base64Audio, encoding: 'WEBM_OPUS' });
+      const result = await appFetch(`${API_BASE}/voice`, 'POST', { audio: base64Audio, encoding: encoding });
       const data = result.data;
       showTyping(false);
       $queryInput.placeholder = 'Ask about your credit report...';
@@ -1737,11 +1818,45 @@
     }
   }
 
-  /** Play base64-encoded audio (WAV from Java VoiceService) with pause/stop controls. */
+  /** Play base64-encoded audio using Web Audio API with HTML5 Audio fallback. */
   function playAudioResponse(base64Audio, msgElement) {
-    const audio = new Audio('data:audio/wav;base64,' + base64Audio);
+    // Web Audio API decoding — works in WebViews where <audio> data URIs may fail
+    if (window.AudioContext || window.webkitAudioContext) {
+      try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        const ctx = new AudioCtx();
+        const binaryStr = atob(base64Audio);
+        const bytes = new Uint8Array(binaryStr.length);
+        for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
 
-    // Fallback: if WAV fails to decode, try as MP3
+        ctx.decodeAudioData(bytes.buffer, (audioBuffer) => {
+          const source = ctx.createBufferSource();
+          source.buffer = audioBuffer;
+          source.connect(ctx.destination);
+
+          if (msgElement) {
+            if (currentSpeechBtn && currentSpeechBtn.parentNode) { currentSpeechBtn.remove(); currentSpeechBtn = null; }
+            const btn = document.createElement('button');
+            btn.className = 'speech-control-btn';
+            btn.innerHTML = '⏹️ Stop';
+            btn.onclick = () => { source.stop(); btn.remove(); currentSpeechBtn = null; ctx.close(); };
+            msgElement.appendChild(btn);
+            currentSpeechBtn = btn;
+            source.onended = () => { btn.remove(); currentSpeechBtn = null; ctx.close(); };
+          }
+          source.start(0);
+        }, () => {
+          // Decode failed, fallback to HTML5 Audio
+          playWithHtmlAudio(base64Audio, msgElement);
+        });
+        return;
+      } catch (e) { /* fall through */ }
+    }
+    playWithHtmlAudio(base64Audio, msgElement);
+  }
+
+  function playWithHtmlAudio(base64Audio, msgElement) {
+    const audio = new Audio('data:audio/wav;base64,' + base64Audio);
     audio.onerror = () => {
       const fallback = new Audio('data:audio/mpeg;base64,' + base64Audio);
       attachAudioControls(fallback, msgElement);
