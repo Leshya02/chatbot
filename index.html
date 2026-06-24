@@ -852,7 +852,6 @@
   <div class="header-icon">🤖</div>
   <div>
     <div class="header-title">Credit Score AI Assistant</div>
-    <div class="header-subtitle">Powered by GPT-5.1 via Godric • RAG + ChromaDB Embeddings</div>
   </div>
   <button class="history-toggle" onclick="toggleHistoryPanel()" title="Chat History" aria-label="Open chat history">
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
@@ -930,10 +929,10 @@
       <div class="prompts">
         <div class="prompt-chip" onclick="sendPrompt('Analyze my report')">📊 Analyze my report</div>
         <div class="prompt-chip" onclick="sendPrompt('Explain report parameters')">📋 Explain report parameters</div>
-        <div class="prompt-chip" onclick="sendPrompt('What does my score signify?')">������ What does my score signify?</div>
+        <div class="prompt-chip" onclick="sendPrompt('What does my score signify?')">🎯 What does my score signify?</div>
         <div class="prompt-chip" onclick="sendPrompt('How can I improve my score?')">📈 How can I improve my score?</div>
         <div class="prompt-chip" onclick="sendPrompt('Show my accounts summary')">🏦 Show my accounts summary</div>
-        <div class="prompt-chip" onclick="sendPrompt('Mere payment history kya hai?')">🇮����� Mera payment history kya hai?</div>
+        <div class="prompt-chip" onclick="sendPrompt('Mere payment history kya hai?')">📅 Mera payment history kya hai?</div>
       </div>
     </div>
 
@@ -1378,7 +1377,7 @@
       }
     }
 
-    $queryInput.focus();
+    $queryInput.blur();
   }
 
   function sendPrompt(text) {
