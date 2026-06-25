@@ -2126,6 +2126,7 @@
     // Use native bridge TTS (PhonePe app)
     if (typeof JSNetworkBridge !== 'undefined' && JSNetworkBridge.speak) {
       JSNetworkBridge.speak(clean);
+      showSpeechStopBtn();
       return;
     }
 
@@ -2141,8 +2142,38 @@
           || voices.find(v => v.lang === 'en-IN')
           || voices.find(v => v.lang.startsWith('en'));
       if (voice) utterance.voice = voice;
+
+      showSpeechStopBtn();
+      utterance.onend = () => hideSpeechStopBtn();
+      utterance.onerror = () => hideSpeechStopBtn();
       window.speechSynthesis.speak(utterance);
     }
+  }
+
+  /** Show a floating pause/stop button for TTS */
+  function showSpeechStopBtn() {
+    hideSpeechStopBtn();
+    const btn = document.createElement('button');
+    btn.id = 'ttsStopBtn';
+    btn.className = 'speech-control-btn';
+    btn.innerHTML = '⏹️ Stop Speaking';
+    btn.style.cssText = 'position:fixed;bottom:80px;right:16px;z-index:100;padding:10px 18px;font-size:14px;';
+    btn.onclick = () => {
+      // Stop TTS by speaking empty string
+      if (typeof JSNetworkBridge !== 'undefined' && JSNetworkBridge.speak) {
+        JSNetworkBridge.speak("");
+      }
+      if (window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
+      hideSpeechStopBtn();
+    };
+    document.body.appendChild(btn);
+  }
+
+  function hideSpeechStopBtn() {
+    const existing = document.getElementById('ttsStopBtn');
+    if (existing) existing.remove();
   }
 
   function speakText(text, msgElement) {
