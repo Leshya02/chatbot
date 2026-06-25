@@ -1816,6 +1816,10 @@
       if (data.audio) {
         playAudioResponse(data.audio, $chatArea.lastElementChild);
       }
+      else {
+        // Fallback: use browser SpeechSynthesis to read the answer
+        speakText(answer, $chatArea.lastElementChild);
+      }
 
     } catch (e) {
       showTyping(false);
