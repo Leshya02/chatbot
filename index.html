@@ -1382,13 +1382,17 @@
           : ('⚠️ ' + (data.message || 'Something went wrong. Please try again.'));
 
       addBotMessage(answer);
-      browserSpeak(answer);
+      if (wasVoice) {
+        browserSpeak(answer);
+      }
 
     } catch (e) {
       showTyping(false);
       const errMsg = '⚠️ Network error. Check if the server is still running.';
       addBotMessage(errMsg);
-      browserSpeak(errMsg);
+      if (wasVoice) {
+        browserSpeak(errMsg);
+      }
     }
 
     $queryInput.blur();
