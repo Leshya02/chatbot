@@ -1372,7 +1372,7 @@
 
       addBotMessage(answer);
       if (wasVoice) {
-        speakText(answer, $chatArea.lastElementChild);
+        speakAnswer(answer, $chatArea.lastElementChild);
       }
 
     } catch (e) {
@@ -1380,7 +1380,7 @@
       const errMsg = '⚠️ Network error. Check if the server is still running.';
       addBotMessage(errMsg);
       if (wasVoice) {
-        speakText(errMsg, $chatArea.lastElementChild);
+        speakAnswer(errMsg, $chatArea.lastElementChild);
       }
     }
 
@@ -1816,6 +1816,10 @@
       if (data.audio) {
         playAudioResponse(data.audio, $chatArea.lastElementChild);
       }
+      else {
+        // Fallback: use browser SpeechSynthesis to read the answer
+        speakText(answer, $chatArea.lastElementChild);
+      }
 
     } catch (e) {
       showTyping(false);
@@ -2109,84 +2113,51 @@
   /**
    * Smart speak: uses server Gemini TTS when available, falls back to browser SpeechSynthesis.
    */
-  async function speakAnswer(text, msgElement) {
-    if (useServerVoice) {
-      try {
-        const clean = cleanTextForSpeech(text);
-        if (!clean) return;
-
-        const result = await appFetch(`${API_BASE}/voice/tts`, 'POST', { text: clean, language: 'en-IN' });
-        const data = result.data;
-        showTyping(false);
-        if (data.audio) {
-          playAudioResponse(data.audio, msgElement);
-          return;
-        }
-      } catch (e) {
-        console.warn('Server TTS failed, falling back to browser SpeechSynthesis');
-      }
-    }
+    async function speakAnswer(text, msgElement) {
     speakText(text, msgElement);
   }
 
-  async function speakText(text, msgElement) {
+  function speakText(text, msgElement) {
+    if (!window.speechSynthesis) return;
+
+    window.speechSynthesis.cancel();
+    if (currentSpeechBtn && currentSpeechBtn.parentNode) {
+      currentSpeechBtn.remove();
+      currentSpeechBtn = null;
+    }
+
     const clean = cleanTextForSpeech(text);
     if (!clean) return;
 
-    // Try browser SpeechSynthesis first
-    if (window.speechSynthesis) {
-      try {
-        window.speechSynthesis.cancel();
-        const utterance = new SpeechSynthesisUtterance(clean);
-        utterance.lang = 'hi-IN';
-        utterance.rate = 0.9;
-        utterance.volume = 1.0;
+    const utterance = new SpeechSynthesisUtterance(clean);
+    utterance.lang = 'en-IN';
+    utterance.rate = 1.0;
+    utterance.pitch = 1.0;
 
-        let spoke = false;
-        utterance.onstart = () => { spoke = true; };
-
-        if (msgElement) {
-          if (currentSpeechBtn && currentSpeechBtn.parentNode) { currentSpeechBtn.remove(); currentSpeechBtn = null; }
-          const btn = document.createElement('button');
-          btn.className = 'speech-control-btn';
-          btn.innerHTML = '⏸️ Pause';
-          btn.onclick = () => toggleSpeechPause(btn);
-          msgElement.appendChild(btn);
-          currentSpeechBtn = btn;
-          const cleanup = () => { btn.remove(); currentSpeechBtn = null; };
-          utterance.onend = cleanup;
-          utterance.onerror = () => {
-            cleanup();
-            if (!spoke) speakWithServerTTS(clean, msgElement);
-          };
-        }
-
-        window.speechSynthesis.speak(utterance);
-
-        // Android WebView bug: speak() may silently fail
-        setTimeout(() => {
-          if (!spoke && !window.speechSynthesis.speaking) {
-            speakWithServerTTS(clean, msgElement);
-          }
-        }, 1000);
-        return;
-      } catch (e) { /* fall through */ }
+    const voices = window.speechSynthesis.getVoices();
+    if (selectedVoiceName) {
+      const chosen = voices.find(v => v.name === selectedVoiceName);
+      if (chosen) utterance.voice = chosen;
+    } else {
+      const preferred = voices.find(v => v.lang === 'en-IN')
+          || voices.find(v => v.lang.startsWith('en'));
+      if (preferred) utterance.voice = preferred;
     }
 
-    // Fallback: use own backend TTS
-    speakWithServerTTS(clean, msgElement);
-  }
+    if (msgElement) {
+      const btn = document.createElement('button');
+      btn.className = 'speech-control-btn';
+      btn.innerHTML = '⏸️ Pause';
+      btn.onclick = () => toggleSpeechPause(btn);
+      msgElement.appendChild(btn);
+      currentSpeechBtn = btn;
 
-  /** Fallback: call own backend /voice/tts endpoint */
-  async function speakWithServerTTS(text, msgElement) {
-    try {
-      const result = await appFetch(`${API_BASE}/voice/tts`, 'POST', { text: text, language: 'hi-IN' });
-      if (result.data && result.data.audio) {
-        playAudioResponse(result.data.audio, msgElement);
-      }
-    } catch (e) {
-      console.warn('[TTS] Server TTS also failed:', e);
+      const cleanup = () => { btn.remove(); currentSpeechBtn = null; };
+      utterance.onend = cleanup;
+      utterance.onerror = cleanup;
     }
+
+    window.speechSynthesis.speak(utterance);
   }
 
   function toggleSpeechPause(btn) {
