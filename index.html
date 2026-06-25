@@ -2109,23 +2109,7 @@
   /**
    * Smart speak: uses server Gemini TTS when available, falls back to browser SpeechSynthesis.
    */
-  async function speakAnswer(text, msgElement) {
-    if (useServerVoice) {
-      try {
-        const clean = cleanTextForSpeech(text);
-        if (!clean) return;
-
-        const result = await appFetch(`${API_BASE}/voice/tts`, 'POST', { text: clean, language: 'en-IN' });
-        const data = result.data;
-        showTyping(false);
-        if (data.audio) {
-          playAudioResponse(data.audio, msgElement);
-          return;
-        }
-      } catch (e) {
-        console.warn('Server TTS failed, falling back to browser SpeechSynthesis');
-      }
-    }
+    async function speakAnswer(text, msgElement) {
     speakText(text, msgElement);
   }
 
