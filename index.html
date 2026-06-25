@@ -1371,17 +1371,13 @@
           : ('⚠️ ' + (data.message || 'Something went wrong. Please try again.'));
 
       addBotMessage(answer);
-      if (wasVoice) {
-        speakAnswer(answer, $chatArea.lastElementChild);
-      }
+      browserSpeak(answer);
 
     } catch (e) {
       showTyping(false);
       const errMsg = '⚠️ Network error. Check if the server is still running.';
       addBotMessage(errMsg);
-      if (wasVoice) {
-        speakAnswer(errMsg, $chatArea.lastElementChild);
-      }
+      browserSpeak(errMsg);
     }
 
     $queryInput.blur();
@@ -1815,10 +1811,8 @@
 
       if (data.audio) {
         playAudioResponse(data.audio, $chatArea.lastElementChild);
-      }
-      else {
-        // Fallback: use browser SpeechSynthesis to read the answer
-        speakText(answer, $chatArea.lastElementChild);
+      } else {
+        browserSpeak(answer);
       }
 
     } catch (e) {
@@ -2111,10 +2105,33 @@
   }
 
   /**
-   * Smart speak: uses server Gemini TTS when available, falls back to browser SpeechSynthesis.
+   * Pure browser TTS — reads text aloud using window.speechSynthesis.
+   * No server call, no LLM, works offline.
    */
-    async function speakAnswer(text, msgElement) {
-    speakText(text, msgElement);
+  function browserSpeak(text) {
+    if (!window.speechSynthesis) {
+      console.warn('[browserSpeak] speechSynthesis not available');
+      return;
+    }
+    window.speechSynthesis.cancel();
+
+    const clean = cleanTextForSpeech(text);
+    if (!clean) return;
+
+    const utterance = new SpeechSynthesisUtterance(clean);
+    utterance.lang = 'hi-IN';
+    utterance.rate = 0.95;
+    utterance.pitch = 1.0;
+    utterance.volume = 1.0;
+
+    // Pick a voice
+    const voices = window.speechSynthesis.getVoices();
+    const voice = voices.find(v => v.lang === 'hi-IN')
+        || voices.find(v => v.lang === 'en-IN')
+        || voices.find(v => v.lang.startsWith('en'));
+    if (voice) utterance.voice = voice;
+
+    window.speechSynthesis.speak(utterance);
   }
 
   function speakText(text, msgElement) {
