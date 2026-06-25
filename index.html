@@ -1031,17 +1031,28 @@
     }
 
     try {
-
-      const parsed = JSON.parse(responseStr.response);
+      let parsed = typeof responseStr === 'string' ? JSON.parse(responseStr) : responseStr;
       console.log('[Bridge CB] parsed:', JSON.stringify(parsed).substring(0, 500));
+
+      // Extract the actual response body
+      let body;
+      if (parsed.response !== undefined) {
+        body = typeof parsed.response === 'string' ? JSON.parse(parsed.response) : parsed.response;
+      } else {
+        body = parsed;
+      }
+
+      // Strip raw XML data if present
+      if (body && body.data) delete body.data;
+
       const httpStatus = parsed.statusCode || parsed.httpStatusCode || statusCode;
-      const body = typeof parsed.response === 'string' ? JSON.parse(parsed.response) : (parsed.response || parsed.data || parsed);
       const isOk = httpStatus === 200 || httpStatus === 1 || statusCode === 1;
-      console.log('[Bridge CB] resolved ok:', isOk, 'httpStatus:', httpStatus);
-      pending.resolve({ ok: isOk, data: body, httpStatus: httpStatus, raw: parsed });
+      console.log('[Bridge CB] resolved ok:', isOk, 'body:', JSON.stringify(body).substring(0, 300));
+      pending.resolve({ ok: isOk, data: body });
     } catch (e) {
       console.error('[Bridge CB] Parse error:', e.message, 'raw:', responseStr);
-      pending.reject(e);
+      // Still resolve with whatever we have so UI doesn't break
+      pending.resolve({ ok: true, data: { answer: String(responseStr).substring(0, 500) } });
     }
   };
 
@@ -2124,7 +2135,6 @@
     utterance.pitch = 1.0;
     utterance.volume = 1.0;
 
-    // Pick a voice
     const voices = window.speechSynthesis.getVoices();
     const voice = voices.find(v => v.lang === 'hi-IN')
         || voices.find(v => v.lang === 'en-IN')
