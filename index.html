@@ -2116,32 +2116,33 @@
   }
 
   /**
-   * Pure browser TTS — reads text aloud using window.speechSynthesis.
-   * No server call, no LLM, works offline.
+   * Speak text aloud using native TTS bridge (JSNetworkBridge.speak).
+   * Falls back to browser speechSynthesis if bridge not available.
    */
   function browserSpeak(text) {
-    if (!window.speechSynthesis) {
-      console.warn('[browserSpeak] speechSynthesis not available');
-      return;
-    }
-    window.speechSynthesis.cancel();
-
     const clean = cleanTextForSpeech(text);
     if (!clean) return;
 
-    const utterance = new SpeechSynthesisUtterance(clean);
-    utterance.lang = 'hi-IN';
-    utterance.rate = 0.95;
-    utterance.pitch = 1.0;
-    utterance.volume = 1.0;
+    // Use native bridge TTS (PhonePe app)
+    if (typeof JSNetworkBridge !== 'undefined' && JSNetworkBridge.speak) {
+      JSNetworkBridge.speak(clean);
+      return;
+    }
 
-    const voices = window.speechSynthesis.getVoices();
-    const voice = voices.find(v => v.lang === 'hi-IN')
-        || voices.find(v => v.lang === 'en-IN')
-        || voices.find(v => v.lang.startsWith('en'));
-    if (voice) utterance.voice = voice;
-
-    window.speechSynthesis.speak(utterance);
+    // Fallback: browser speechSynthesis (for desktop/Chrome testing)
+    if (window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(clean);
+      utterance.lang = 'hi-IN';
+      utterance.rate = 0.95;
+      utterance.volume = 1.0;
+      const voices = window.speechSynthesis.getVoices();
+      const voice = voices.find(v => v.lang === 'hi-IN')
+          || voices.find(v => v.lang === 'en-IN')
+          || voices.find(v => v.lang.startsWith('en'));
+      if (voice) utterance.voice = voice;
+      window.speechSynthesis.speak(utterance);
+    }
   }
 
   function speakText(text, msgElement) {
