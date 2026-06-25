@@ -2123,11 +2123,16 @@
     const clean = cleanTextForSpeech(text);
     if (!clean) return;
 
+    showSpeechStopBtn();
+
     // Use native bridge TTS (PhonePe app)
-    if (typeof JSNetworkBridge !== 'undefined' && JSNetworkBridge.speak) {
-      JSNetworkBridge.speak(clean);
-      showSpeechStopBtn();
-      return;
+    if (typeof JSNetworkBridge !== 'undefined') {
+      try {
+        JSNetworkBridge.speak(clean);
+        return;
+      } catch (e) {
+        console.warn('[browserSpeak] JSNetworkBridge.speak failed:', e);
+      }
     }
 
     // Fallback: browser speechSynthesis (for desktop/Chrome testing)
@@ -2142,8 +2147,6 @@
           || voices.find(v => v.lang === 'en-IN')
           || voices.find(v => v.lang.startsWith('en'));
       if (voice) utterance.voice = voice;
-
-      showSpeechStopBtn();
       utterance.onend = () => hideSpeechStopBtn();
       utterance.onerror = () => hideSpeechStopBtn();
       window.speechSynthesis.speak(utterance);
@@ -2155,11 +2158,9 @@
     hideSpeechStopBtn();
     const btn = document.createElement('button');
     btn.id = 'ttsStopBtn';
-    btn.className = 'speech-control-btn';
-    btn.innerHTML = '⏹️ Stop Speaking';
-    btn.style.cssText = 'position:fixed;bottom:80px;right:16px;z-index:100;padding:10px 18px;font-size:14px;';
+    btn.innerHTML = '⏹️ Stop';
+    btn.style.cssText = 'position:fixed;bottom:90px;right:16px;z-index:9999;padding:12px 20px;font-size:14px;font-weight:700;background:#d32f2f;color:white;border:none;border-radius:24px;box-shadow:0 4px 12px rgba(0,0,0,0.3);cursor:pointer;';
     btn.onclick = () => {
-      // Stop TTS by speaking empty string
       if (typeof JSNetworkBridge !== 'undefined' && JSNetworkBridge.speak) {
         JSNetworkBridge.speak("");
       }
