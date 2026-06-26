@@ -951,20 +951,13 @@
 
   <!-- RIGHT: Active Chat Window -->
   <div class="chat-panel">
-    <!-- User ID Bar -->
-    <div class="user-bar">
-      <input type="text" id="userId" placeholder="Enter User ID"
-             onkeydown="if(event.key==='Enter') connectUser()" />
-      <button id="connectBtn" onclick="connectUser()">📊 Load</button>
-      <span class="status" id="status">● Not connected</span>
-    </div>
 
     <!-- Chat Messages -->
     <div class="chat-area" id="chatArea">
       <div class="welcome">
         <div class="welcome-icon">📊</div>
-        <h2>Welcome to Credit Score AI</h2>
-        <p>Enter a User ID above to load the credit report. Then ask questions in English or Hindi about your credit score, accounts, and more.</p>
+        <h2>Credit Score AI Assistant</h2>
+        <p>Loading your credit report...</p>
       </div>
     </div>
 
@@ -1004,7 +997,7 @@
 
   /* ── PhonePe App Bridge ���─ */
 
-  const IS_IN_APP = typeof JSNetworkBridge !== 'undefined';
+  const IS_IN_APP = typeof JSCreditCustomBridge !== 'undefined';
   const pendingCallbacks = {};
   const callbackHistory = [];   // in-memory store of all callbackIds
   let lastCallbackId = null;    // most recent callbackId
@@ -1058,7 +1051,7 @@
 
   /**
    * Universal fetch wrapper.
-   * - In PhonePe app: uses JSNetworkBridge
+   * - In PhonePe app: uses JSCreditCustomBridge
    * - In browser: uses normal fetch()
    * Returns { ok: boolean, data: object }
    */
@@ -1082,22 +1075,19 @@
         callbackId: callbackId,
         subUrl: url,
         httpMethod: method,
-        headers: { 'Content-Type': 'application/json', 'X-REQUEST-ENV': 'stage.credscore.betaenv' },
+        headers: { 'X-REQUEST-ENV': 'stage.credscore.betaenv' },
         ...(body ? { bodyJSON: JSON.stringify(body) } : {})
       });
 
-      JSNetworkBridge.processRequest(request);
+      JSCreditCustomBridge.processRequest(request);
     });
   }
 
 
   /* ── DOM element cache ── */
-  const $userId    = document.getElementById('userId');
   const $queryInput = document.getElementById('queryInput');
   const $sendBtn   = document.getElementById('sendBtn');
   const $micBtn    = document.getElementById('micBtn');
-  const $connectBtn = document.getElementById('connectBtn');
-  const $status    = document.getElementById('status');
   const $chatArea  = document.getElementById('chatArea');
   const $typing    = document.getElementById('typing');
   const $prompts   = document.getElementById('promptsContainer');
@@ -1194,19 +1184,16 @@
     currentSessionId = null;
     sessionActive = false;
 
-    $userId.value = '';
     $queryInput.disabled = true;
     $sendBtn.disabled = true;
     $micBtn.disabled = true;
     $prompts.classList.add('hidden');
-    $status.textContent = '● Not connected';
-    $status.className = 'status';
 
     clearChat();
     $chatArea.innerHTML =
         '<div class="welcome"><div class="welcome-icon">🏦</div>' +
-        '<h2>Welcome to Credit Score AI</h2>' +
-        '<p>Enter a User ID above to load the credit report.</p></div>';
+        '<h2>Credit Score AI Assistant</h2>' +
+        '<p>Waiting for user data...</p></div>';
 
     saveSessions();
     renderHistoryList();
@@ -1225,23 +1212,18 @@
       else addBotMessage(m.text, true);
     });
 
-    $userId.value = session.userId;
     if (session.active) {
       sessionActive = true;
       $queryInput.disabled = false;
       $sendBtn.disabled = false;
       $micBtn.disabled = false;
       $prompts.classList.remove('hidden');
-      $status.textContent = '● Connected: ' + session.userId;
-      $status.className = 'status connected';
     } else {
       sessionActive = false;
       $queryInput.disabled = true;
       $sendBtn.disabled = true;
       $micBtn.disabled = true;
       $prompts.classList.add('hidden');
-      $status.textContent = '● Session ended';
-      $status.className = 'status';
     }
 
     renderHistoryList();
@@ -1305,21 +1287,15 @@
   }
 
   /* ── Connect / Query ── */
-  async function connectUser() {
-    const userId = $userId.value.trim();
+  async function connectUser(userId) {
     if (!userId) return;
-
-    $connectBtn.disabled = true;
-    $connectBtn.textContent = '⏳ …';
-    $status.textContent = '● Fetching report...';
-    $status.className = 'status loading';
 
     const session = createSession(userId);
     clearChat();
-    addBotMessage('⏳ Loading credit report for **' + userId + '**...');
+    addBotMessage('⏳ Loading credit report...');
 
     try {
-      let result = await appFetch(`${API_BASE}/fetch-score/PERSON/${encodeURIComponent(userId)}`, 'POST');
+      let result = await appFetch(`${API_BASE}/fetch-score/PERSON`, 'POST');
 
       if (!result.ok) {
         result = await appFetch(`${API_BASE}/init/${encodeURIComponent(userId)}`, 'POST');
@@ -1332,8 +1308,6 @@
         if (data.currentScore && data.currentScore > 0) {
           currentScoreFromXml = data.currentScore;
         }
-        $status.textContent = '● Connected: ' + userId;
-        $status.className = 'status connected';
         $queryInput.disabled = false;
         $sendBtn.disabled = false;
         $micBtn.disabled = false;
@@ -1343,23 +1317,32 @@
             : '';
         addBotMessage('✅ **Report loaded successfully!**\n\nI can help you with:\n- Credit score analysis and insights\n- Account details and payment history\n- Impact factors and improvement tips\n- Address details and report parameters' + scoreInfo + '\n\nAsk me anything in **English** or **Hindi**! 🇮🇳');
       } else {
-        addBotMessage('❌ ' + (data.message || 'Failed to load report. Check User ID and try again.'));
-        $status.textContent = '● Error';
-        $status.className = 'status error';
+        addBotMessage('❌ ' + (data.message || 'Failed to load report.'));
         session.active = false;
       }
     } catch (e) {
-      addBotMessage('❌ **Cannot connect to server.**\n\nMake sure:\n1. The credscore server is running on `localhost:8090`\n2. Run with: `server credscore-server/config/local.yml`');
-      $status.textContent = '● Disconnected';
-      $status.className = 'status error';
+      addBotMessage('❌ **Cannot connect to server.** Please try again.');
       session.active = false;
     }
 
     saveSessions();
     renderHistoryList();
-    $connectBtn.disabled = false;
-    $connectBtn.textContent = '📊 Load';
   }
+
+  /**
+   * Called by the app team's button to pass userId.
+   * Exposed globally so native bridge can call: window.initWithUserId("U123...")
+   */
+  window.initWithUserId = function(userId) {
+    if (userId) connectUser(userId);
+  };
+
+  // Auto-init from URL parameter (e.g., ?userId=U2606031206381959893177)
+  (function autoInit() {
+    const params = new URLSearchParams(window.location.search);
+    const uid = params.get('userId') || params.get('userid') || params.get('user_id');
+    if (uid) connectUser(uid);
+  })();
 
   async function sendMessage() {
     const query = $queryInput.value.trim();
@@ -2121,7 +2104,7 @@
   }
 
   /**
-   * Speak text aloud using native TTS bridge (JSNetworkBridge.speak).
+   * Speak text aloud using native TTS bridge (JSCreditCustomBridge.speak).
    * Falls back to browser speechSynthesis if bridge not available.
    */
   function browserSpeak(text) {
@@ -2131,12 +2114,12 @@
     showSpeechStopBtn();
 
     // Use native bridge TTS (PhonePe app)
-    if (typeof JSNetworkBridge !== 'undefined') {
+    if (typeof JSCreditCustomBridge !== 'undefined') {
       try {
-        JSNetworkBridge.speak(clean);
+        JSCreditCustomBridge.speak(clean);
         return;
       } catch (e) {
-        console.warn('[browserSpeak] JSNetworkBridge.speak failed:', e);
+        console.warn('[browserSpeak] JSCreditCustomBridge.speak failed:', e);
       }
     }
 
@@ -2166,8 +2149,8 @@
     btn.innerHTML = '⏹️ Stop';
     btn.style.cssText = 'position:fixed;bottom:90px;right:16px;z-index:9999;padding:12px 20px;font-size:14px;font-weight:700;background:#d32f2f;color:white;border:none;border-radius:24px;box-shadow:0 4px 12px rgba(0,0,0,0.3);cursor:pointer;';
     btn.onclick = () => {
-      if (typeof JSNetworkBridge !== 'undefined' && JSNetworkBridge.speak) {
-        JSNetworkBridge.speak("");
+      if (typeof JSCreditCustomBridge !== 'undefined' && JSCreditCustomBridge.speak) {
+        JSCreditCustomBridge.speak("");
       }
       if (window.speechSynthesis) {
         window.speechSynthesis.cancel();
@@ -2245,3 +2228,6 @@
 </script>
 </body>
 </html>
+
+
+
