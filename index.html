@@ -1337,11 +1337,11 @@
     if (userId) connectUser(userId);
   };
 
-  // Auto-init from URL parameter (e.g., ?userId=U2606031206381959893177)
+  // Auto-init on page load
   (function autoInit() {
     const params = new URLSearchParams(window.location.search);
-    const uid = params.get('userId') || params.get('userid') || params.get('user_id');
-    if (uid) connectUser(uid);
+    const uid = params.get('userId') || params.get('userid') || params.get('user_id') || 'default';
+    connectUser(uid);
   })();
 
   async function sendMessage() {
@@ -2210,7 +2210,6 @@
     populateVoiceSelector();
     window.speechSynthesis.onvoiceschanged = () => populateVoiceSelector();
   }
-  
 </script>
 </body>
 </html>
