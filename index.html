@@ -997,7 +997,7 @@
 
   /* ── PhonePe App Bridge ���─ */
 
-  const IS_IN_APP = typeof JSCreditCustomBridge !== 'undefined';
+  const IS_IN_APP = typeof JSNetworkBridge !== 'undefined';
   const pendingCallbacks = {};
   const callbackHistory = [];   // in-memory store of all callbackIds
   let lastCallbackId = null;    // most recent callbackId
@@ -1051,7 +1051,7 @@
 
   /**
    * Universal fetch wrapper.
-   * - In PhonePe app: uses JSCreditCustomBridge
+   * - In PhonePe app: uses JSNetworkBridge / JSCreditCustomBridge
    * - In browser: uses normal fetch()
    * Returns { ok: boolean, data: object }
    */
@@ -1079,7 +1079,12 @@
         ...(body ? { bodyJSON: JSON.stringify(body) } : {})
       });
 
-      JSCreditCustomBridge.processRequest(request);
+      // Use JSCreditCustomBridge for initial fetch-score (XML), JSNetworkBridge for rest
+      if (url.includes('fetch-score')) {
+        JSCreditCustomBridge.processRequest(request);
+      } else {
+        JSNetworkBridge.processRequest(request);
+      }
     });
   }
 
@@ -2089,7 +2094,7 @@
   }
 
   /**
-   * Speak text aloud using native TTS bridge (JSCreditCustomBridge.speak).
+   * Speak text aloud using native TTS bridge (JSNetworkBridge.speak).
    * Falls back to browser speechSynthesis if bridge not available.
    */
   function browserSpeak(text) {
@@ -2099,12 +2104,12 @@
     showSpeechStopBtn();
 
     // Use native bridge TTS (PhonePe app)
-    if (typeof JSCreditCustomBridge !== 'undefined') {
+    if (typeof JSNetworkBridge !== 'undefined') {
       try {
-        JSCreditCustomBridge.speak(clean);
+        JSNetworkBridge.speak(clean);
         return;
       } catch (e) {
-        console.warn('[browserSpeak] JSCreditCustomBridge.speak failed:', e);
+        console.warn('[browserSpeak] JSNetworkBridge.speak failed:', e);
       }
     }
 
@@ -2134,8 +2139,8 @@
     btn.innerHTML = '⏹️ Stop';
     btn.style.cssText = 'position:fixed;bottom:90px;right:16px;z-index:9999;padding:12px 20px;font-size:14px;font-weight:700;background:#d32f2f;color:white;border:none;border-radius:24px;box-shadow:0 4px 12px rgba(0,0,0,0.3);cursor:pointer;';
     btn.onclick = () => {
-      if (typeof JSCreditCustomBridge !== 'undefined' && JSCreditCustomBridge.speak) {
-        JSCreditCustomBridge.speak("");
+      if (typeof JSNetworkBridge !== 'undefined' && JSNetworkBridge.speak) {
+        JSNetworkBridge.speak("");
       }
       if (window.speechSynthesis) {
         window.speechSynthesis.cancel();
