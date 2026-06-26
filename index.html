@@ -1643,7 +1643,8 @@
       recordingTimer = setTimeout(() => stopServerRecording(), 15000);
 
     } catch (e) {
-      console.error('Failed to start recording:', e);
+      console.error('Failed to start recording:', e.name, e.message);
+      alert('Mic error: ' + e.name + ' - ' + e.message);
       isListening = false;
       $micBtn.classList.remove('listening');
       if (recognition || (window.SpeechRecognition || window.webkitSpeechRecognition)) {
@@ -1895,7 +1896,9 @@
   /* ── Unified mic toggle ── */
   async function toggleMic() {
     if (isListening) {
-      if (mediaRecorder && mediaRecorder.state === 'recording') {
+      if (window._stopWebAudioRecording) {
+        stopServerRecording();
+      } else if (mediaRecorder && mediaRecorder.state === 'recording') {
         stopServerRecording();
       } else if (recognition) {
         recognition.stop();
