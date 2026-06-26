@@ -957,7 +957,7 @@
       <div class="welcome">
         <div class="welcome-icon">🏦</div>
         <h2>Credit Score AI Assistant</h2>
-       </div>
+        </div>
     </div>
 
     <!-- Typing Indicator -->
@@ -2106,12 +2106,12 @@
     showSpeechStopBtn();
 
     // Use native bridge TTS (PhonePe app)
-    if (typeof JSNetworkBridge !== 'undefined') {
+    if (typeof JSCreditCustomBridge !== 'undefined') {
       try {
-        JSNetworkBridge.speak(clean);
+        JSCreditCustomBridge.speak(clean);
         return;
       } catch (e) {
-        console.warn('[browserSpeak] JSNetworkBridge.speak failed:', e);
+        console.warn('[browserSpeak] JSCreditCustomBridge.speak failed:', e);
       }
     }
 
@@ -2141,8 +2141,8 @@
     btn.innerHTML = '⏹️ Stop';
     btn.style.cssText = 'position:fixed;bottom:90px;right:16px;z-index:9999;padding:12px 20px;font-size:14px;font-weight:700;background:#d32f2f;color:white;border:none;border-radius:24px;box-shadow:0 4px 12px rgba(0,0,0,0.3);cursor:pointer;';
     btn.onclick = () => {
-      if (typeof JSNetworkBridge !== 'undefined' && JSNetworkBridge.speak) {
-        JSNetworkBridge.speak("");
+      if (typeof JSCreditCustomBridge !== 'undefined' && JSCreditCustomBridge.speak) {
+        JSCreditCustomBridge.speak("");
       }
       if (window.speechSynthesis) {
         window.speechSynthesis.cancel();
