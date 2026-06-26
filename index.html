@@ -1481,22 +1481,8 @@
   let isListening = false;
   let mediaRecorder = null;
   let audioChunks = [];
-  let useServerVoice = false;
+  let useServerVoice = true;
   let recordingTimer = null;
-
-  async function checkVoiceService() {
-    try {
-      const result = await appFetch(`${API_BASE}/voice/health`, 'GET');
-      if (result.ok) {
-        useServerVoice = !!result.data.available;
-      } else {
-        useServerVoice = false;
-      }
-    } catch (e) {
-      useServerVoice = false;
-    }
-  }
-  checkVoiceService();
 
   function initSpeechRecognition() {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -1912,7 +1898,6 @@
       return;
     }
 
-    if (!useServerVoice) await checkVoiceService();
 
     if (useServerVoice) {
       startServerRecording();
