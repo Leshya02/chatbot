@@ -1319,8 +1319,12 @@
         const scoreInfo = currentScoreFromXml > 300
             ? '\n- **Current Score: ' + currentScoreFromXml + '**'
             : '';
-        addBotMessage('✅ **Hey! I am your Credit Assistant!**\n\nI can help you with:\n- Credit score analysis and insights\n- Account details and payment history\n- Impact factors and improvement tips\n- Address details and report parameters' + scoreInfo + '\n\nAsk me anything in **English** or **Hindi**! 🇮🇳');
-      } else {
+  const displayName = data.userName || '';
+        const greeting = displayName
+            ? '✅ **Hey ' + displayName + '!** I am your Cred Score Assistant!'
+            : ' **Hey!** I am your Cred Score Assistant!';
+        addBotMessage(greeting + '\n\nI can help you with:\n- Credit score analysis and insights\n- Account details and payment history\n- Impact factors and improvement tips\n- Address details and report parameters' + scoreInfo + '\n\nAsk me anything in **English** or **Hindi**! 🇮🇳');
+            } else {
         addBotMessage('❌ ' + (data.message || 'Failed to load report.'));
         session.active = false;
       }
